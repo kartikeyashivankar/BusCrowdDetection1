@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Bus Crowd Detection System</title>
+  <meta name="description" content="Real-time bus passenger crowd detection and monitoring dashboard"/>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="style.css"/>
+</head>
+<body>
+
+  <!-- Background layers -->
+  <canvas id="particleCanvas"></canvas>
+  <div class="bg-grid"></div>
+  <div class="bg-orbs">
+    <div class="orb orb-1"></div>
+    <div class="orb orb-2"></div>
+    <div class="orb orb-3"></div>
+    <div class="orb orb-4"></div>
+  </div>
+
+  <!-- ═══ HEADER ═══════════════════════════════════════════════ -->
+  <header class="header">
+    <div class="header-left">
+      <div class="bus-icon-wrap">
+        <span class="bus-icon">🚌</span>
+        <div class="bus-icon-glow"></div>
+      </div>
+      <div class="header-text">
+        <h1>Bus Crowd Detection</h1>
+        <p class="header-sub">Real‑Time Passenger Monitoring System</p>
+      </div>
+    </div>
+    <div class="header-right">
+      <div class="connection-status" id="connectionStatus">
+        <span class="status-dot" id="statusDot"></span>
+        <span id="statusText">Connecting…</span>
+      </div>
+      <div class="current-time" id="currentTime">--:--:--</div>
+      <button class="hdr-btn" id="muteBtn" title="Toggle Sound">🔔</button>
+      <button class="hdr-btn" id="fsBtn" title="Fullscreen Mode">⛶</button>
+      <button class="hdr-btn" id="themeBtn" title="Toggle Theme">🌙</button>
+    </div>
+  </header>
+
+  <!-- ═══ PASSENGER VIEW PANEL ═════════════════════════════════ -->
+  <div class="passenger-panel" id="passengerPanel">
+    <div class="pv-inner" id="pvInner">
+      <div class="pv-icon" id="pvIcon">
+        <svg class="pv-svg" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="24" cy="24" r="22" stroke="currentColor" stroke-width="2.5"/>
+          <polyline points="14,24 21,31 34,16" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+      <div class="pv-text">
+        <div class="pv-status" id="pvStatus">SEATS AVAILABLE</div>
+        <div class="pv-detail" id="pvDetail">45 seats remaining — Boarding open</div>
+      </div>
+    </div>
+    <div class="pv-badge">Passenger Display</div>
+  </div>
+
+  <!-- ═══ DASHBOARD ════════════════════════════════════════════ -->
+  <main class="dashboard">
+
+    <!-- Stats Row -->
+    <div class="stats-row">
+      <div class="stat-card card-entered" id="cardEntered">
+        <div class="card-top-accent"></div>
+        <div class="stat-icon entered">↑</div>
+        <div class="stat-info">
+          <div class="stat-label">Total Entered</div>
+          <div class="stat-value" id="totalEntered">0</div>
+        </div>
+        <div class="stat-bg-glow"></div>
+      </div>
+      <div class="stat-card card-exited" id="cardExited">
+        <div class="card-top-accent"></div>
+        <div class="stat-icon exited">↓</div>
+        <div class="stat-info">
+          <div class="stat-label">Total Exited</div>
+          <div class="stat-value" id="totalExited">0</div>
+        </div>
+        <div class="stat-bg-glow"></div>
+      </div>
+      <div class="stat-card card-capacity" id="cardCapacity">
+        <div class="card-top-accent"></div>
+        <div class="stat-icon capacity">⚡</div>
+        <div class="stat-info">
+          <div class="stat-label">Bus Capacity</div>
+          <div class="stat-value" id="busCapacity">45</div>
+        </div>
+        <div class="stat-bg-glow"></div>
+      </div>
+      <div class="stat-card card-available" id="cardAvailable">
+        <div class="card-top-accent"></div>
+        <div class="stat-icon available">💺</div>
+        <div class="stat-info">
+          <div class="stat-label">Seats Available</div>
+          <div class="stat-value" id="seatsAvailable">45</div>
+        </div>
+        <div class="stat-bg-glow"></div>
+      </div>
+    </div>
+
+    <!-- Main Section (2-col) -->
+    <div class="main-section">
+
+      <!-- LEFT: Count + Charts -->
+      <div class="count-card" id="countCard">
+
+        <div class="count-header">
+          <span class="count-title">Current Passengers</span>
+          <div class="bus-status-badge" id="statusBadge">
+            <span class="badge-dot"></span>
+            <span id="statusBadgeText">NORMAL</span>
+          </div>
+        </div>
+
+        <!-- Circular Gauge -->
+        <div class="gauge-wrapper">
+          <svg class="gauge-svg" viewBox="0 0 240 240" id="gaugeSvg">
+            <defs>
+              <linearGradient id="gradSafe" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%"   stop-color="#00f5a0"/><stop offset="100%" stop-color="#00b4d8"/>
+              </linearGradient>
+              <linearGradient id="gradWarn" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%"   stop-color="#fbbf24"/><stop offset="100%" stop-color="#f97316"/>
+              </linearGradient>
+              <linearGradient id="gradDanger" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%"   stop-color="#ff4d6d"/><stop offset="100%" stop-color="#ef233c"/>
+              </linearGradient>
+              <filter id="arcGlow" x="-30%" y="-30%" width="160%" height="160%">
+                <feGaussianBlur in="SourceGraphic" stdDeviation="8" result="b1"/>
+                <feGaussianBlur in="SourceGraphic" stdDeviation="3" result="b2"/>
+                <feMerge><feMergeNode in="b1"/><feMergeNode in="b2"/><feMergeNode in="SourceGraphic"/></feMerge>
+              </filter>
+              <filter id="dotGlow">
+                <feGaussianBlur in="SourceGraphic" stdDeviation="4" result="blur"/>
+                <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+              </filter>
+            </defs>
+            <circle class="gauge-outer-ring" cx="120" cy="120" r="108"/>
+            <circle class="gauge-track"      cx="120" cy="120" r="95"/>
+            <circle class="gauge-glow-arc" id="gaugeGlowArc"
+              cx="120" cy="120" r="95"
+              stroke-dasharray="596.9" stroke-dashoffset="596.9"
+              transform="rotate(-90 120 120)" filter="url(#arcGlow)"/>
+            <circle class="gauge-progress" id="gaugeProgress"
+              cx="120" cy="120" r="95"
+              stroke-dasharray="596.9" stroke-dashoffset="596.9"
+              transform="rotate(-90 120 120)"/>
+            <circle class="gauge-tip" id="gaugeTip" cx="120" cy="25" r="6" filter="url(#dotGlow)"/>
+            <g id="gaugeTicks"></g>
+          </svg>
+          <div class="gauge-center">
+            <div class="gauge-count" id="currentCount">0</div>
+            <div class="gauge-divider">/ <span id="gaugeCapacity">45</span></div>
+            <div class="gauge-percent" id="gaugePercent">0%</div>
+          </div>
+        </div>
+
+        <!-- Line Chart -->
+        <div class="chart-section">
+          <div class="chart-label">📈 Passenger Count History <span class="chart-sub">(last 20 readings)</span></div>
+          <canvas id="lineChartCanvas" class="chart-canvas"></canvas>
+        </div>
+
+        <!-- BUS FULL Alert -->
+        <div class="full-alert" id="fullAlert">
+          <div class="pulse-ring ring-1"></div>
+          <div class="pulse-ring ring-2"></div>
+          <div class="pulse-ring ring-3"></div>
+          <div class="alert-content">
+            <div class="alert-emoji">🚫</div>
+            <div class="alert-text">
+              <strong>BUS FULL</strong>
+              <span>Maximum capacity reached!</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Progress Bar -->
+        <div class="progress-section">
+          <div class="progress-labels">
+            <span>0</span>
+            <span id="progressLabel">0 / 45 passengers</span>
+            <span id="busCapacityLabel">45</span>
+          </div>
+          <div class="progress-bar-wrapper">
+            <div class="progress-bar-fill" id="progressFill">
+              <div class="progress-shimmer"></div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- RIGHT Panel -->
+      <div class="right-panel">
+
+        <!-- Bar Chart -->
+        <div class="panel-card chart-card">
+          <div class="panel-header">
+            <span class="panel-title">📊 Entry vs Exit</span>
+            <div class="bar-chart-legend">
+              <span><span class="bc-dot green"></span>Entries</span>
+              <span><span class="bc-dot red"></span>Exits</span>
+            </div>
+          </div>
+          <canvas id="barChartCanvas" class="chart-canvas bar-chart-canvas"></canvas>
+        </div>
+
+        <!-- Feed -->
+        <div class="panel-card feed-card">
+          <div class="panel-header">
+            <span class="panel-title">📋 Live Events</span>
+            <button class="clear-btn" id="clearFeedBtn">Clear</button>
+          </div>
+          <div class="event-feed" id="eventFeed">
+            <div class="feed-empty">Waiting for events…</div>
+          </div>
+        </div>
+
+        <!-- Occupancy -->
+        <div class="panel-card load-card">
+          <div class="panel-header">
+            <span class="panel-title">⚡ Occupancy Level</span>
+            <span class="load-pct-badge" id="loadPercent">0%</span>
+          </div>
+          <div class="load-track">
+            <div class="load-fill" id="loadBarFill"><div class="load-shimmer"></div></div>
+          </div>
+          <div class="load-legend">
+            <span class="legend-item"><span class="legend-dot safe"></span>Safe (&lt;70%)</span>
+            <span class="legend-item"><span class="legend-dot warning"></span>Warn (70–89%)</span>
+            <span class="legend-item"><span class="legend-dot danger"></span>Full (≥90%)</span>
+          </div>
+        </div>
+
+        <!-- Controls -->
+        <div class="panel-card control-card">
+          <div class="panel-header">
+            <span class="panel-title">🛠️ Controls</span>
+          </div>
+          <div class="controls">
+            <div class="control-group">
+              <label for="capacityInput">🚌 Bus Capacity</label>
+              <div class="control-row">
+                <input type="number" id="capacityInput" min="1" max="200" value="45" placeholder="45"/>
+                <button class="ctrl-btn set-btn" id="setCapacityBtn">✓ Set</button>
+              </div>
+            </div>
+            <button class="ctrl-btn reset-btn" id="resetBtn">🔄 Reset Count</button>
+            <div class="sim-row">
+              <button class="ctrl-btn sim-enter-btn" id="simEnterBtn">🟢 ＋ Entry</button>
+              <button class="ctrl-btn sim-exit-btn"  id="simExitBtn">🔴 － Exit</button>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ═══ TRIP SUMMARY ══════════════════════════════════════ -->
+    <div class="trip-card">
+      <div class="trip-header">
+        <div class="trip-title">🗺️ Trip Summary</div>
+        <button class="ctrl-btn reset-trip-btn" id="resetTripBtn">🔁 New Trip</button>
+      </div>
+      <div class="trip-stats">
+        <div class="trip-stat">
+          <div class="trip-stat-icon">🕐</div>
+          <div class="trip-stat-label">Trip Started</div>
+          <div class="trip-stat-value mono" id="tripStart">--:--:--</div>
+        </div>
+        <div class="trip-divider"></div>
+        <div class="trip-stat">
+          <div class="trip-stat-icon">⏱️</div>
+          <div class="trip-stat-label">Duration</div>
+          <div class="trip-stat-value mono" id="tripDuration">00:00:00</div>
+        </div>
+        <div class="trip-divider"></div>
+        <div class="trip-stat">
+          <div class="trip-stat-icon">📈</div>
+          <div class="trip-stat-label">Peak Count</div>
+          <div class="trip-stat-value" id="tripPeak">0</div>
+        </div>
+        <div class="trip-divider"></div>
+        <div class="trip-stat">
+          <div class="trip-stat-icon">🎫</div>
+          <div class="trip-stat-label">Total Boarded</div>
+          <div class="trip-stat-value" id="tripBoarded">0</div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- ═══ FOOTER ════════════════════════════════════════════════ -->
+  <footer class="footer">
+    <div class="footer-inner">
+      <span class="footer-brand">🚌 Bus Crowd Detection System</span>
+      <span class="footer-sep">|</span>
+      <span>Hardware Microproject · Arduino &amp; ESP32 · IoT Dashboard</span>
+      <span class="footer-sep">|</span>
+      <span>© 2026 All Rights Reserved</span>
+    </div>
+  </footer>
+
+  <!-- ═══ CONFIRM RESET MODAL ═══════════════════════════════════ -->
+  <div class="modal-overlay" id="confirmModal">
+    <div class="modal-box">
+      <div class="modal-icon">⚠️</div>
+      <h3 class="modal-title">Reset Passenger Count?</h3>
+      <p class="modal-desc">This will clear the current passenger count to zero. This action cannot be undone.</p>
+      <div class="modal-actions">
+        <button class="modal-btn confirm-yes" id="confirmYes">✓ Yes, Reset</button>
+        <button class="modal-btn confirm-no"  id="confirmNo">✕ Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ FULLSCREEN GAUGE OVERLAY ══════════════════════════════ -->
+  <div class="fs-overlay" id="fsOverlay">
+    <button class="fs-close" id="fsClose" title="Exit Fullscreen">✕</button>
+    <div class="fs-content">
+      <div class="fs-status-badge" id="fsStatusBadge">NORMAL</div>
+      <div class="fs-gauge-wrap">
+        <svg class="fs-gauge-svg" viewBox="0 0 300 300">
+          <defs>
+            <linearGradient id="fsGradSafe" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%"   stop-color="#00f5a0"/><stop offset="100%" stop-color="#00b4d8"/>
+            </linearGradient>
+            <linearGradient id="fsGradWarn" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%"   stop-color="#fbbf24"/><stop offset="100%" stop-color="#f97316"/>
+            </linearGradient>
+            <linearGradient id="fsGradDanger" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%"   stop-color="#ff4d6d"/><stop offset="100%" stop-color="#ef233c"/>
+            </linearGradient>
+            <filter id="fsGlow" x="-40%" y="-40%" width="180%" height="180%">
+              <feGaussianBlur in="SourceGraphic" stdDeviation="12"/>
+            </filter>
+          </defs>
+          <circle class="fs-gauge-track" cx="150" cy="150" r="120"/>
+          <circle class="fs-gauge-glow" id="fsGaugeGlow"
+            cx="150" cy="150" r="120"
+            stroke-dasharray="753.98" stroke-dashoffset="753.98"
+            transform="rotate(-90 150 150)" filter="url(#fsGlow)"/>
+          <circle class="fs-gauge-arc" id="fsGaugeArc"
+            cx="150" cy="150" r="120"
+            stroke-dasharray="753.98" stroke-dashoffset="753.98"
+            transform="rotate(-90 150 150)"/>
+          <circle class="fs-gauge-tip" id="fsGaugeTip" cx="150" cy="30" r="9"/>
+        </svg>
+        <div class="fs-gauge-center">
+          <div class="fs-count" id="fsCount">0</div>
+          <div class="fs-cap-label">/ <span id="fsCap">45</span></div>
+          <div class="fs-pct" id="fsPct">0%</div>
+        </div>
+      </div>
+      <div class="fs-full-msg" id="fsFullMsg">⚠️ BUS FULL — No more boarding</div>
+      <div class="fs-route-label">Bus Crowd Detection System</div>
+    </div>
+  </div>
+
+  <!-- ═══ BUS FULL POPUP OVERLAY ════════════════════════════════ -->
+  <div class="full-overlay" id="fullOverlay">
+    <div class="overlay-rings">
+      <div class="o-ring o-ring-1"></div>
+      <div class="o-ring o-ring-2"></div>
+      <div class="o-ring o-ring-3"></div>
+    </div>
+    <div class="overlay-content">
+      <div class="overlay-icon">🚫</div>
+      <h2>BUS FULL</h2>
+      <p>Maximum passenger capacity has been reached.</p>
+      <p class="overlay-sub">No more passengers should board this bus.</p>
+      <button class="overlay-dismiss" id="dismissOverlay">Dismiss</button>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
