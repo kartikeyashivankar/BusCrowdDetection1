@@ -39,18 +39,18 @@
  *   { type: 'setCapacity', value: <n> }
  */
 
-const express      = require('express');
-const http         = require('http');
-const path         = require('path');
-const cors         = require('cors');
+const express = require('express');
+const http = require('http');
+const path = require('path');
+const cors = require('cors');
 const { WebSocketServer } = require('ws');
 
 const { initSerial, sendCommand, listPorts } = require('./serialHandler');
 const createRouter = require('./routes');
 
 // ── Server Config ─────────────────────────────────────────────
-const PORT         = process.env.PORT     || 3000;
-const CAPACITY     = parseInt(process.env.BUS_CAPACITY, 10) || 45;
+const PORT = process.env.PORT || 3000;
+const CAPACITY = parseInt(process.env.BUS_CAPACITY, 10) || 45;
 const FRONTEND_DIR = path.join(__dirname, '..', 'frontend');
 
 // ── Shared Bus State ──────────────────────────────────────────
@@ -58,14 +58,14 @@ const FRONTEND_DIR = path.join(__dirname, '..', 'frontend');
 // bus occupancy. Both the serial handler and WebSocket handler
 // mutate this object and broadcast changes to all clients.
 const busState = {
-  count:    0,
+  count: 0,
   capacity: CAPACITY,
-  totalIn:  0,
+  totalIn: 0,
   totalOut: 0,
 };
 
 // ── Express App ───────────────────────────────────────────────
-const app    = express();
+const app = express();
 const server = http.createServer(app);
 
 app.use(cors());
@@ -126,8 +126,8 @@ wss.on('connection', (ws, req) => {
         break;
 
       case 'reset':
-        busState.count    = 0;
-        busState.totalIn  = 0;
+        busState.count = 0;
+        busState.totalIn = 0;
         busState.totalOut = 0;
         sendCommand('RESET');
         broadcastAll({ type: 'reset', ...getSnapshot() });
@@ -167,7 +167,7 @@ wss.on('connection', (ws, req) => {
  */
 function broadcastAll(payload) {
   const json = JSON.stringify(payload);
-  let sent   = 0;
+  let sent = 0;
   wss.clients.forEach((client) => {
     if (client.readyState === client.OPEN) {
       client.send(json);
@@ -193,12 +193,12 @@ function safeSend(ws, payload) {
 // ── State Snapshot Helper ─────────────────────────────────────
 function getSnapshot() {
   return {
-    count:        busState.count,
-    capacity:     busState.capacity,
-    totalIn:      busState.totalIn,
-    totalOut:     busState.totalOut,
-    isFull:       busState.count >= busState.capacity,
-    seatsLeft:    Math.max(busState.capacity - busState.count, 0),
+    count: busState.count,
+    capacity: busState.capacity,
+    totalIn: busState.totalIn,
+    totalOut: busState.totalOut,
+    isFull: busState.count >= busState.capacity,
+    seatsLeft: Math.max(busState.capacity - busState.count, 0),
     occupancyPct: busState.capacity > 0
       ? Math.round((busState.count / busState.capacity) * 100)
       : 0,
@@ -228,7 +228,7 @@ server.listen(PORT, () => {
 });
 
 // ── Graceful Shutdown ─────────────────────────────────────────
-process.on('SIGINT',  () => shutdown('SIGINT'));
+process.on('SIGINT', () => shutdown('SIGINT'));
 process.on('SIGTERM', () => shutdown('SIGTERM'));
 
 function shutdown(signal) {
