@@ -39,8 +39,12 @@ function cleanupPort() {
     parser = null;
   }
   if (port) {
+    // Only attempt close if the port is actually open.
+    // Remove listeners AFTER closing to avoid unhandled 'error' events.
+    if (port.isOpen) {
+      try { port.close(); } catch (_) { /* ignore */ }
+    }
     port.removeAllListeners();
-    try { port.close(); } catch (_) { /* already closed */ }
     port = null;
   }
 }
@@ -83,50 +87,55 @@ function initSerial(busState, onEvent) {
   });
 
   parser.on('data', (rawLine) => {
-    const line = rawLine.trim().toUpperCase();
-    if (!line) return;
+    // Strip any non-printable / non-ASCII garbage bytes that appear
+    // during USB reconnection (e.g. "\uFFFD\uFFFD...SET").
+    const cleaned = rawLine.replace(/[^\x20-\x7E]/g, '').trim().toUpperCase();
+    if (!cleaned) return;
 
-    console.log(`[Serial] ← Received: "${line}"`);
+    console.log(`[Serial] ← Received: "${cleaned}"`);
 
-    if (line === 'ENTRY') {                  // ✅ FIXED: was 'ENTER'
+    if (cleaned === 'ENTRY') {
       if (busState.count < busState.capacity) {
         busState.count++;
         busState.totalIn++;
       }
       onEvent('enter', busState);
 
-    } else if (line === 'EXIT') {
+    } else if (cleaned === 'EXIT') {
       if (busState.count > 0) {
         busState.count--;
         busState.totalOut++;
       }
       onEvent('exit', busState);
 
-    } else if (line === 'FULL') {
+    } else if (cleaned === 'FULL') {
       onEvent('full', busState);
 
-    } else if (line === 'RESET') {
+    } else if (cleaned === 'RESET') {
       busState.count = 0;
       busState.totalIn = 0;
       busState.totalOut = 0;
       onEvent('reset', busState);
 
-    } else if (line.startsWith('COUNT:')) {
-      const n = parseInt(line.split(':')[1], 10);
+    } else if (cleaned.startsWith('COUNT:')) {
+      const n = parseInt(cleaned.split(':')[1], 10);
       if (!isNaN(n)) {
         busState.count = n;
         onEvent('status', busState);
       }
 
-    } else if (line.startsWith('CAPACITY:')) {
-      const n = parseInt(line.split(':')[1], 10);
+    } else if (cleaned.startsWith('CAPACITY:')) {
+      const n = parseInt(cleaned.split(':')[1], 10);
       if (!isNaN(n) && n > 0) {
         busState.capacity = n;
         onEvent('status', busState);
       }
 
     } else {
-      console.log(`[Serial] ℹ Unknown message: "${line}"`);
+      // Silently ignore short garbage fragments (< 3 chars)
+      if (cleaned.length >= 3) {
+        console.log(`[Serial] ℹ Unknown message: "${cleaned}"`);
+      }
     }
   });
 
