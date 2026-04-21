@@ -15,7 +15,7 @@
  */
 
 // ── Config ────────────────────────────────────────────────────
-const WS_URL = 'wss://buscrowddetection1-production.up.railway.app';
+const WS_URL = 'ws://localhost:3000';
 const MAX_FEED = 50;
 const WARN_PCT = 0.70;
 const GAUGE_CIRC = 596.9;   // 2π × 95
