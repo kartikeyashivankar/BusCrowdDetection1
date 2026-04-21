@@ -27,8 +27,40 @@ const SERIAL_CONFIG = {
 
 let port = null;
 let parser = null;
+let reconnectTimer = null;
+const RECONNECT_INTERVAL = 5000; // 5 seconds between retry attempts
+
+/**
+ * Clean up old port and parser references before reconnecting.
+ */
+function cleanupPort() {
+  if (parser) {
+    parser.removeAllListeners();
+    parser = null;
+  }
+  if (port) {
+    port.removeAllListeners();
+    try { port.close(); } catch (_) { /* already closed */ }
+    port = null;
+  }
+}
+
+/**
+ * Schedule a reconnection attempt. Keeps retrying every 5 seconds
+ * until the device is plugged back in and the port opens successfully.
+ */
+function scheduleReconnect(busState, onEvent) {
+  if (reconnectTimer) return; // already scheduled
+  reconnectTimer = setTimeout(() => {
+    reconnectTimer = null;
+    initSerial(busState, onEvent);
+  }, RECONNECT_INTERVAL);
+}
 
 function initSerial(busState, onEvent) {
+  // Clean up any previous connection first
+  cleanupPort();
+
   console.log(`[Serial] Attempting to open ${SERIAL_CONFIG.path} @ ${SERIAL_CONFIG.baudRate} baud…`);
 
   port = new SerialPort({
@@ -42,7 +74,9 @@ function initSerial(busState, onEvent) {
   port.open((err) => {
     if (err) {
       console.error(`[Serial] ❌ Failed to open port: ${err.message}`);
-      console.warn('[Serial] Running without hardware — use simulation buttons on frontend.');
+      console.warn('[Serial] Running without hardware — will keep retrying every 5s…');
+      // ── KEY FIX: keep retrying instead of giving up ──
+      scheduleReconnect(busState, onEvent);
       return;
     }
     console.log(`[Serial] ✅ Port ${SERIAL_CONFIG.path} opened successfully.`);
@@ -100,9 +134,11 @@ function initSerial(busState, onEvent) {
     console.error(`[Serial] Port error: ${err.message}`);
   });
 
+  // ── When the USB cable is unplugged, the port closes ──
+  // Keep retrying until the device is plugged back in.
   port.on('close', () => {
-    console.warn('[Serial] Port closed. Attempting reconnect in 5 seconds…');
-    setTimeout(() => initSerial(busState, onEvent), 5000);
+    console.warn('[Serial] ⚠ Port closed (USB disconnected?). Will retry every 5s…');
+    scheduleReconnect(busState, onEvent);
   });
 }
 
